@@ -6,6 +6,8 @@ bin-release/
 data/
 # Other files and folders
 .settings/
+.idea/
+
 
 # Executables
 *.swf
