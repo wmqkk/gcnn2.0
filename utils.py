@@ -214,14 +214,14 @@ def input_sz():
     names = ['inx', 'iny', 'graph', 'label']
     object = []
     for i in range(len(names)):
-        with open("ssz.{}".format(names[i]), 'r') as f:
+        with open("./data/ssz.{}".format(names[i]), 'r') as f:
             temp = f.read().split('\n')
             temp.pop()
             temp = [int(i) for i in temp]
             object.append(temp)
     x, y, graph, label = tuple(object)
 
-    with open("ssz.data") as f:
+    with open("./data/ssz.data") as f:
         data = f.read().split('\n')
         data.pop()
         for i in range(len(data)):
