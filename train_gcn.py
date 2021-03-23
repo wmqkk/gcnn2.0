@@ -11,19 +11,21 @@ tf.random.set_seed(seed)
 
 early_stopping = 100
 
-num_supports = 1
-layers = 4
-num = 80
-weight_decay = 5e-4
-batch_size = 50
-epochs = 1000
+num_supports = 1  # Chebyshev polynomials up to order num_supports
+weight_decay = 5e-4  # Weight for L2 loss on embedding matrix
 
-learning_rate = 0.002
+epochs = 1000  # Number of epochs to train
+
+learning_rate = 0.002  # Initial learning rate
 
 adj, data, y_train, y_test, train_mask, test_mask, labels = input_sz()
 print('load_data success')
 
+# choose Chebyshev polynomials as Convolution kernels
 support = chebyshev_polynomials(adj,4)
+
+# choose Symmetrically normalize adjacency matrix as Convolution kernels
+# support = [preprocess_adj(adj)]
 
 data = tf.constant([data])
 y_train = tf.constant(y_train)

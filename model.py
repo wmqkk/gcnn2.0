@@ -6,7 +6,7 @@ from layers import *
 class gcnnmodel(tf.Module):
     def __init__(self):
         super(gcnnmodel, self).__init__()
-        filters = 64
+        filters = 64  # Number of convolution kernels
         self.layer = []
         self.layer.append(GraphConvolution(shape=(4, filters), dropout=0, name='layer1'))
         self.layer.append(GraphConvolution(shape=(filters, filters), dropout=0, name='layer2'))
@@ -27,7 +27,7 @@ class gcnnmodel(tf.Module):
 class gcnmodel(tf.Module):
     def __init__(self):
         super(gcnmodel, self).__init__()
-        filters = 32
+        filters = 32  # Number of convolution kernels
         self.layer = []
         self.layer.append(GraphConvolution(shape=(4, filters), dropout=0, name='layer1'))
         self.layer.append(GraphConvolution(shape=(filters, filters), dropout=0., name='layer2'))

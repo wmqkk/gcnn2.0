@@ -20,10 +20,12 @@ seed = 123
 np.random.seed(seed)
 
 
+# Calculate characteristics
 def distance(p1, p2):
     return ((p1.X - p2.X) ** 2 + (p1.Y - p2.Y) ** 2) ** 0.5
 
 
+# Calculate characteristics
 def angle(p1, p2):
     dx = p1.X - p2.X
     dy = p1.Y - p2.Y
@@ -32,17 +34,41 @@ def angle(p1, p2):
     else:
         return np.arctan(dy / dx) / np.pi * 180
 
+# Calculate characteristics
+def angle2(p1,p2):
+    dx = p1.X - p2.X
+    dy = p1.Y - p2.Y
+    if (dx >= 0)and(dy >= 0):
+        if dx == 0 :
+            return 90
+        else:
+            return np.arctan(dy/dx)/np.pi*180
 
+    if (dx >= 0)and(dy < 0):
+        if dx == 0:
+            return 270
+        else:
+            return np.arctan(dy/dx)/np.pi*180 + 360
+
+    if (dx < 0)and(dy >= 0):
+        return np.arctan(dy/dx)/np.pi*180 + 180
+
+    if (dx < 0)and(dy < 0):
+        return np.arctan(dy/dx)/np.pi*180 + 180
+
+# Calculate characteristics
 class Point:
     def __init__(self, x, y):
         self.X = x
         self.Y = y
 
 
+# Calculate characteristics and Adjacency matrix
 def input_data(num, path):
     all_data = []
     all_adj = []
     max_nums = 0
+    node_nums = []
     for i in range(num):
         df_shape = gpd.read_file(path + str(i) + '.shp', encode='utf-8')
         lst = df_shape['geometry']
@@ -54,6 +80,7 @@ def input_data(num, path):
         _angle = []
         if (lst.shape[0] > max_nums):
             max_nums = lst.shape[0]
+        node_nums.append(lst.shape[0])
         for j in range(lst.shape[0]):
             try:
                 line = np.array(lst.iat[j].xy).T
@@ -64,14 +91,17 @@ def input_data(num, path):
             center.X += (line[0][0] + line[1][0]) * long
             center.Y += (line[0][1] + line[1][1]) * long
             all_long += long
-        center.X = 0.5 * center.X / all_long
-        center.Y = 0.5 * center.Y / all_long
+        try:
+            center.X = 0.5 * center.X / all_long
+            center.Y = 0.5 * center.Y / all_long
+        except:
+            print(i)
         shape = lst.shape[0]
         adj = np.zeros(shape=(shape, shape))
         for j in range(lst.shape[0]):
             _direction.append(angle(point[j][0], point[j][1]))
             _distance.append(0.5 * (distance(point[j][0], center) + distance(point[j][1], center)))
-            _angle.append(angle(point[j][0], center))
+            _angle.append(angle2(point[j][0], center))
             for k in range(j + 1, lst.shape[0]):
                 if ((point[k][0].X == point[j][0].X and point[k][0].Y == point[j][0].Y)
                         or (point[k][0].X == point[j][1].X and point[k][0].Y == point[j][1].Y)
@@ -82,37 +112,45 @@ def input_data(num, path):
         _degree = np.sum(adj, axis=0)
         scaler = preprocessing.StandardScaler()
         _degree = scaler.fit_transform(_degree.reshape(-1, 1))
-        _distance = scaler.fit_transform(np.array(_distance).reshape(-1, 1))
+        _distance = scaler.fit_transform(np.array(_distance).reshape(-1,  1))
         _direction = scaler.fit_transform(np.array(_direction).reshape(-1, 1))
         _angle = scaler.fit_transform(np.array(_angle).reshape(-1, 1))
         data = np.array([_degree, _distance, _direction, _angle]).T
+        # data = np.random.random(shape)
+        # data = np.array([np.random.random(shape)]).T
+        # data = np.array([np.ones(shape)]).T
         data = data.reshape(data.shape[1], data.shape[2])
         all_data.append(data)
         all_adj.append(adj)
-    return all_data, all_adj, max_nums
+    return all_data, all_adj, max_nums, node_nums
 
 
+
+# input data for gcnnmodel
 def input_all_data(num, chebyshev_p):
-    all_tree, tree_adj, tree_nums = input_data(num, './data/irregular/merge/')
-    all_comb, comb_adj, comb_nums = input_data(num, './data/radial/merge/')
-    all_road, road_adj, road_nums = input_data(num, './data/grid/merge/')
-    max_nums = max(road_nums, tree_nums, comb_nums)
-    all_data = all_road + all_tree + all_comb
+    all_tree, tree_adj, tree_nums, irregulae_nums = input_data(num, './data/irregular/merge/')
+    all_comb, comb_adj, comb_nums, raidal_nums = input_data(num, './data/radial2/merge/')
+    all_road, road_adj, road_nums, grid_nums = input_data(num, './data/grid/merge/')
+    max_nums = max(road_nums, tree_nums)
+    all_data = all_road + all_tree +all_comb
     all_adj = road_adj + tree_adj + comb_adj
+    all_node_num = grid_nums+irregulae_nums +raidal_nums
     for i in range(len(all_data)):
         shape = all_data[i].shape
         all_data[i] = np.pad(all_data[i], pad_width=((0, max_nums - shape[0]), (0, 0)), mode='constant')
         if (i < num):
             all_data[i] = [all_data[i], np.array([0, 1, 0])]
-        elif (i < 2 * num):
-            all_data[i] = [all_data[i], np.array([0, 0, 1])]
-        else:
+        elif (i< 2*num):
             all_data[i] = [all_data[i], np.array([1, 0, 0])]
+        else:
+            all_data[i] = [all_data[i], np.array([0, 0, 1])]
         all_adj[i] = np.pad(all_adj[i], pad_width=((0, max_nums - shape[0]), (0, max_nums - shape[0])))
         all_data[i].append(chebyshev_polynomials(all_adj[i], chebyshev_p))
         # all_data[i].append([preprocess_adj(all_adj[i])])
         all_data[i].append(i)
-    train_X, test_X = train_test_split(all_data, test_size=0.3)
+
+
+    train_X, test_X = train_test_split(all_data, test_size=0.5)
 
     test_index = []
     feature = []
@@ -121,21 +159,27 @@ def input_all_data(num, chebyshev_p):
     test_y = []
     train_support = []
     test_support = []
+    train_nodes = []
+    test_nodes = []
     for i in range(len(train_X)):
         feature.append(train_X[i][0])
         train_y.append(train_X[i][1])
         train_support.append(train_X[i][2])
+        train_nodes.append(all_node_num[train_X[i][3]])
     for i in range(len(test_X)):
         test_feature.append(test_X[i][0])
         test_y.append(test_X[i][1])
         test_support.append(test_X[i][2])
         test_index.append(test_X[i][3])
+        test_nodes.append(all_node_num[test_X[i][3]])
     pd.DataFrame(test_index).to_csv('test.csv')
-    return feature, train_y, train_support, test_feature, test_y, test_support, test_index
+    return feature, train_y, train_support, test_feature, test_y, test_support, test_index, train_nodes,test_nodes
 
 
+# Generate sample data for the graph node classification model
 def generate_sz():
-    df_shape = gpd.read_file('./data/szs2s.shp', encode='utf-8')
+    name='test'
+    df_shape = gpd.read_file("./data/sz/test/{}.shp".format(name), encode='utf-8')
     lst = df_shape['geometry']
     point = []
     center = Point(0, 0)
@@ -165,7 +209,7 @@ def generate_sz():
     for j in range(lst.shape[0]):
         _direction.append(angle(point[j][0], point[j][1]))
         _distance.append(0.5 * (distance(point[j][0], center) + distance(point[j][1], center)))
-        _angle.append(angle(point[j][0], center))
+        _angle.append(angle2(point[j][0], center))
         for k in range(j + 1, lst.shape[0]):
             if ((point[k][0].X == point[j][0].X and point[k][0].Y == point[j][0].Y)
                     or (point[k][0].X == point[j][1].X and point[k][0].Y == point[j][1].Y)
@@ -186,50 +230,52 @@ def generate_sz():
     _angle = scaler.fit_transform(np.array(_angle).reshape(-1, 1))
     data = np.array([_degree, _distance, _direction, _angle]).T
     data = data.reshape(data.shape[1], data.shape[2])
-    filename = 'ssz.inx'
+    filename = "./data/{}.inx".format(name)
     with open(filename, 'w') as file_object:
         for i in col:
             file_object.write(i.__str__() + '\n' )
-    filename = 'ssz.iny'
+    filename = "./data/{}.iny".format(name)
     with open(filename, 'w') as file_object:
         for i in row:
             file_object.write(i.__str__() + '\n')
-    filename = 'ssz.graph'
+    filename = "./data/{}.graph".format(name)
     with open(filename, 'w') as file_object:
         for i in adj_data:
             file_object.write(i.__str__() + '\n')
-    filename = 'ssz.data'
+    filename = "./data/{}.data".format(name)
     with open(filename, 'w') as file_object:
         for item in data:
             file_object.write(' '.join([str(i) for i in item]))
             file_object.write('\n')
-    filename = 'ssz.label'
+    filename = "./data/{}.label".format(name)
     with open(filename, 'w') as file_object:
         for i in labels:
             file_object.write(i.__str__() + '\n')
 
 
 
+# input data for gcnmodel
 def input_sz():
     names = ['inx', 'iny', 'graph', 'label']
     object = []
     for i in range(len(names)):
-        with open("./data/ssz.{}".format(names[i]), 'r') as f:
+        with open("./data/szs2s.{}".format(names[i]), 'r') as f:
             temp = f.read().split('\n')
             temp.pop()
             temp = [int(i) for i in temp]
             object.append(temp)
     x, y, graph, label = tuple(object)
 
-    with open("./data/ssz.data") as f:
+    with open("./data/szs2s.data") as f:
         data = f.read().split('\n')
         data.pop()
         for i in range(len(data)):
             data[i] = [float(i) for i in data[i].split(' ')]
 
     shape = len(data)
+    data = np.array(data)
     adj = sp.coo_matrix((graph,(x,y)),shape=(shape, shape))
-    idx_train, idx_test = train_test_split(list(range(shape)), test_size=0.95)
+    idx_train, idx_test = train_test_split(list(range(shape)), test_size=0.9, stratify=label,random_state=123)
     labels = preprocessing.OneHotEncoder(sparse=False).fit_transform(np.array(label).reshape(-1,1))
     train_mask = sample_mask(idx_train, labels.shape[0])
     test_mask = sample_mask(idx_test, labels.shape[0])
@@ -237,7 +283,11 @@ def input_sz():
     y_test = np.zeros(labels.shape)
     y_train[train_mask, :] = labels[train_mask, :]
     y_test[test_mask, :] = labels[test_mask, :]
-    return adj, data, y_train, y_test, train_mask, test_mask, labels
+    # data = np.delete(data,1,axis=1)
+    # data = data[:,1:2]
+    # data = np.array([np.random.random(data.shape[0])]).T
+    return adj, data, y_train, y_test, train_mask, test_mask, labels, idx_train,x,y
+
 
 
 

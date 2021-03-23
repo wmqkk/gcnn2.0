@@ -12,14 +12,13 @@ tf.random.set_seed(seed)
 
 early_stopping = 100
 
-num_supports = 1
-layers = 4
-num = 80
-weight_decay = 5e-5
-batch_size = 50
-epochs = 1000
+num_supports = 1  # Chebyshev polynomials up to order num_supports
+num = 80  # Sample size
+weight_decay = 5e-5  # Chebyshev polynomials up to order num_supports
+batch_size = 50 # mini batch size
+epochs = 1000 # Number of epochs to train
 
-learning_rate = 0.000125
+learning_rate = 0.000125  # Initial learning rate
 
 train_feature, train_y, train_support, test_feature, test_y, test_support, test_index = input_all_data(num, num_supports)
 def gen(feature,supports,y,batchsize):
